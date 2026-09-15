@@ -52,9 +52,16 @@ def main() -> None:
         files["model"] = "model.onnx"
         engine = "vits"
         sample_rate = 22050
-        cfg = os.path.join(args.dir, "config.json")
-        if os.path.exists(cfg):
-            sample_rate = json.load(open(cfg)).get("sampling_rate", sample_rate)
+        # sherpa VITS models carry sample_rate in ONNX metadata; fall back to config.json.
+        try:
+            import onnx
+            meta = {p.key: p.value for p in onnx.load(os.path.join(args.dir, "model.onnx"), load_external_data=False).metadata_props}
+            sample_rate = int(meta.get("sample_rate", sample_rate))
+        except Exception:
+            cfg = os.path.join(args.dir, "config.json")
+            if os.path.exists(cfg):
+                c = json.load(open(cfg))
+                sample_rate = c.get("sampling_rate") or c.get("sample_rate") or c.get("data", {}).get("sampling_rate", sample_rate)
         sp = os.path.join(args.dir, "speakers.json")
         if os.path.exists(sp):
             speakers = json.load(open(sp))

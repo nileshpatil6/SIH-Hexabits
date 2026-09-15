@@ -1,4 +1,4 @@
-# iTantra
+﻿# iTantra
 
 SIH 26173: Indian Multilingual TTS & STT Aided Neural Transceiver Radio Access for low bitrate links.
 
@@ -31,8 +31,8 @@ There is no server.
 |---|---|---|
 | STT (9 Indic) | AI4Bharat IndicConformer per-language large, CTC head, int8 (~130 MB each) | MIT |
 | STT (English) | NVIDIA stt_en_conformer_ctc_small | CC-BY-4.0 |
-| TTS (bn mr ta te kn ml) | AI4Bharat vits_rasa_13, one 40M model | CC-BY-4.0 |
-| TTS (hi gu or en) | Meta MMS-TTS VITS | CC-BY-NC-4.0 |
+| TTS (all 10) | Meta MMS-TTS VITS, sherpa export (~108 MB each) | CC-BY-NC-4.0 |
+| TTS (planned) | AI4Bharat vits_rasa_13 for bn mr ta te kn ml, see tools/tts/export_rasa13.py | CC-BY-4.0 |
 | VAD | Silero VAD (bundled) | MIT |
 | Runtime | sherpa-onnx 1.13.8 | Apache-2.0 |
 
@@ -51,12 +51,10 @@ See `tools/`. Typical flow for Hindi (Linux or Colab for the NeMo step):
 
 ```
 pip install -r tools/requirements.txt
-python tools/stt/export_indicconformer.py --lang hi --out tools/work/stt/hi
-python tools/stt/verify_stt.py --dir tools/work/stt/hi --wav sample.wav
+python tools/stt/fetch_indicconformer_onnx.py --out tools/work/stt --langs hi
+python tools/tts/export_mms.py --out tools/work/tts/mms --langs hi   # Linux/Colab
 python tools/packs/build_pack.py stt --lang hi --dir tools/work/stt/hi --out dist/
-
-python tools/tts/fetch_mms.py --out tools/work/tts
-python tools/packs/build_pack.py tts --lang hi --dir tools/work/tts/_mms_repo/<hindi folder> --out dist/
+python tools/packs/build_pack.py tts --lang hi --dir tools/work/tts/mms/hi --out dist/
 ```
 
 Copy the `.itpack` files to the phone and import them from Settings > Model packs.
@@ -67,3 +65,9 @@ Copy the `.itpack` files to the phone and import them from Settings > Model pack
 cd app && flutter test
 cd app/android && ./gradlew :app:testDebugUnitTest
 ```
+
+
+## Prebuilt packs
+
+All 20 packs (10 STT + 10 TTS, verified end to end) are published at https://huggingface.co/datasets/Mr66/itantra-packs
+
