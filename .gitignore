@@ -1,0 +1,10 @@
+# Large binaries fetched by tools/ scripts
+app/android/app/libs/*.aar
+*.itpack
+*.nemo
+*.onnx
+!app/assets/models/silero_vad.onnx
+tools/.venv/
+tools/work/
+__pycache__/
+.DS_Store

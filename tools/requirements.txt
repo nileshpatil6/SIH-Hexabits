@@ -1,0 +1,11 @@
+# Laptop-side tooling only. Nothing here ships in the app or runs as a server.
+# STT export additionally needs the AI4Bharat NeMo fork (see tools/README.md).
+onnx>=1.16
+onnxruntime>=1.19
+sherpa-onnx>=1.13.8
+huggingface_hub>=0.25
+soundfile>=0.12
+numpy>=1.26
+jiwer>=3.0
+torch>=2.3
+transformers>=4.44

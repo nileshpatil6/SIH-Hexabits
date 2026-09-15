@@ -1,0 +1,29 @@
+name: itantra
+description: "iTantra: offline multilingual STT/TTS walkie-talkie over BLE mesh and Wi-Fi Direct (SIH 26173)."
+publish_to: 'none'
+
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.6.1
+  go_router: ^14.6.2
+  permission_handler: ^11.3.1
+  shared_preferences: ^2.3.4
+  file_picker: ^8.1.6
+  intl: ^0.20.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  pigeon: ^22.7.2
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/models/
