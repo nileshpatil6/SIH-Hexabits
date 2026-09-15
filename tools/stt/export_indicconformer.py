@@ -18,7 +18,7 @@ from onnxruntime.quantization import QuantType, quantize_dynamic
 # Per-language "large" hybrid models published by AI4Bharat.
 BASE = "https://objectstore.e2enetworks.net/indicconformer/models"
 LANG_MODEL = {
-    code: f"indicconformer_stt_{code}_hybrid_ctc_rnnt_large"
+    code: f"indicconformer_stt_{code}_hybrid_rnnt_large"
     for code in ["hi", "bn", "mr", "gu", "ta", "te", "kn", "ml", "or"]
 }
 # IndicConformer has no English model; use NVIDIA's small English CTC conformer.
@@ -59,15 +59,21 @@ def main() -> None:
         # Hybrid model: switch the export/decoding head to CTC.
         if hasattr(model, "cur_decoder"):
             model.cur_decoder = "ctc"
-        if hasattr(model, "change_decoding_strategy"):
-            model.change_decoding_strategy(decoder_type="ctc")
+        if hasattr(model, "set_export_config"):
+            model.set_export_config({"decoder_type": "ctc"})
 
     model.eval()
     model.preprocessor.featurizer.dither = 0.0
     model.preprocessor.featurizer.pad_to = 0
 
     # tokens.txt in sherpa format: "<token> <id>", blank last.
-    vocab = model.decoder.vocabulary if hasattr(model.decoder, "vocabulary") else model.ctc_decoder.vocabulary
+    # Hybrid models keep the CTC vocab on ctc_decoder (same as joint's); plain CTC models on decoder.
+    for owner in ("ctc_decoder", "joint", "decoder"):
+        vocab = getattr(getattr(model, owner, None), "vocabulary", None)
+        if vocab:
+            break
+    else:
+        raise RuntimeError("could not find model vocabulary")
     with open(os.path.join(args.out, "tokens.txt"), "w", encoding="utf-8") as f:
         for i, tok in enumerate(vocab):
             f.write(f"{tok} {i}\n")

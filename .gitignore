@@ -4,6 +4,7 @@ app/android/app/libs/*.aar
 *.nemo
 *.onnx
 !app/assets/models/silero_vad.onnx
+dist/
 tools/.venv/
 tools/work/
 __pycache__/
