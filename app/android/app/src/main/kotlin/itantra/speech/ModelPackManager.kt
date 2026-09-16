@@ -136,6 +136,64 @@ class ModelPackManager(private val context: Context) {
         }
     }
 
+    /**
+     * Download "<lang>-<kind>.itpack" from [PACKS_BASE_URL] into cache, then import it.
+     * Progress: 0..0.9 download, 0.9..1 unpack. Throws [java.util.concurrent.CancellationException] when cancelled.
+     */
+    fun download(lang: String, kind: PackKind, progress: (Double) -> Unit, cancelled: () -> Boolean): PackManifest {
+        val name = "$lang-${kind.name.lowercase()}"
+        val tmp = File(context.cacheDir, "$name.itpack.part")
+        try {
+            var conn = java.net.URL("$PACKS_BASE_URL/$name.itpack").openConnection() as java.net.HttpURLConnection
+            var hops = 0
+            while (true) {
+                conn.instanceFollowRedirects = false
+                conn.connectTimeout = 20_000
+                conn.readTimeout = 60_000
+                val code = conn.responseCode
+                if (code in 300..399) {
+                    val next = java.net.URL(conn.url, conn.getHeaderField("Location"))
+                    conn.disconnect()
+                    require(++hops <= 5) { "too many redirects" }
+                    conn = next.openConnection() as java.net.HttpURLConnection
+                    continue
+                }
+                if (code == 404) error("No $name pack published yet")
+                if (code != 200) error("Download failed: HTTP $code")
+                break
+            }
+            val total = conn.contentLengthLong
+            // Zip on disk + unpacked copy both exist briefly.
+            if (total > 0 && root.usableSpace < total * 2 + 50_000_000L) {
+                conn.disconnect()
+                error("Not enough storage: need ${(total * 2) / 1_000_000} MB free")
+            }
+            conn.inputStream.use { input ->
+                tmp.outputStream().buffered().use { out ->
+                    val buf = ByteArray(1 shl 16)
+                    var read = 0L
+                    var lastReport = 0L
+                    while (true) {
+                        if (cancelled()) throw java.util.concurrent.CancellationException("cancelled")
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        out.write(buf, 0, n)
+                        read += n
+                        if (total > 0 && read - lastReport > 1_000_000) {
+                            lastReport = read
+                            progress(0.9 * read / total)
+                        }
+                    }
+                    if (total > 0 && read != total) error("Download interrupted ($read of $total bytes)")
+                }
+            }
+            conn.disconnect()
+            return import(tmp.absolutePath) { p -> progress(0.9 + 0.1 * p) }
+        } finally {
+            tmp.delete()
+        }
+    }
+
     /** Debug/demo convenience: packs dropped under assets/models/<name>/ are copied on first run. */
     fun installBundledAssets() {
         val am = context.assets
@@ -148,6 +206,10 @@ class ModelPackManager(private val context: Context) {
             dest.mkdirs()
             for (f in files) am.open("models/$n/$f").use { i -> File(dest, f).outputStream().use { i.copyTo(it) } }
         }
+    }
+
+    companion object {
+        const val PACKS_BASE_URL = "https://huggingface.co/datasets/Mr66/itantra-packs/resolve/main"
     }
 
     private fun sha256(f: File): String {

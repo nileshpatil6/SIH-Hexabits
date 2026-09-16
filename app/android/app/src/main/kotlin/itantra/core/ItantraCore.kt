@@ -107,7 +107,9 @@ class ItantraCore private constructor(private val app: Context) : MeshRouter.Han
         if (!stt.isLoaded(lang)) {
             runCatching { stt.load(lang) }.onFailure { events?.onError("stt_missing", it.message ?: "STT pack missing"); return }
         }
-        val seg = segmenter ?: SentenceSegmenter(app.assets, onUtterance = ::onUtterance).also { segmenter = it }
+        val seg = segmenter ?: runCatching { SentenceSegmenter(vadModelPath(), onUtterance = ::onUtterance) }
+            .onFailure { events?.onError("vad", it.message ?: "VAD failed to load") }
+            .getOrNull()?.also { segmenter = it } ?: return
         seg.reset()
         val cap = AudioCapture(onFrame = { f -> seg.accept(f) }, onLevel = { events?.onCaptureLevel(it) })
         runCatching { cap.start() }.onFailure { events?.onError("mic", it.message ?: "mic failed"); return }
@@ -125,6 +127,15 @@ class ItantraCore private constructor(private val app: Context) : MeshRouter.Han
     }
 
     fun isCapturing() = capture?.isRunning() == true
+
+    /** Flutter stores assets under flutter_assets/; native code needs a plain file path. */
+    private fun vadModelPath(): String {
+        val out = java.io.File(app.filesDir, "silero_vad.onnx")
+        if (!out.isFile || out.length() == 0L) {
+            app.assets.open("flutter_assets/assets/models/silero_vad.onnx").use { i -> out.outputStream().use { i.copyTo(it) } }
+        }
+        return out.absolutePath
+    }
 
     private fun onUtterance(samples: FloatArray) {
         pendingUtterances.incrementAndGet()

@@ -36,6 +36,7 @@ class SttEngine(private val packs: ModelPackManager, private val numThreads: Int
             recognizer?.release(); recognizer = null; loadedLang = null
             val model = m.file("model")?.absolutePath ?: error("pack ${m.name} has no model")
             val tokens = m.file("tokens")?.absolutePath ?: error("pack ${m.name} has no tokens")
+            require(java.io.File(model).isFile && java.io.File(tokens).isFile) { "pack ${m.name} is incomplete, re-download it" }
             val cfg = OfflineRecognizerConfig(
                 featConfig = FeatureConfig(sampleRate = m.sampleRate, featureDim = 80),
                 modelConfig = when (m.engine) {

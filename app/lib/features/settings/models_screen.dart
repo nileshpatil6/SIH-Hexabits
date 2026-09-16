@@ -21,41 +21,55 @@ class ModelsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(appProvider);
     final c = ref.read(appProvider.notifier);
-
-    ModelPackInfo? find(String lang, PackKind kind) =>
-        s.packs.where((p) => p.lang == lang && p.kind == kind).firstOrNull;
-
-    Widget cell(String lang, PackKind kind) {
-      final p = find(lang, kind);
-      if (p == null) return const Icon(Icons.remove_circle_outline, color: Colors.grey, size: 20);
-      return Tooltip(
-        message: '${p.engine} · ${_size(p.sizeBytes)} · v${p.version}',
-        child: const Icon(Icons.check_circle, color: Colors.green, size: 20),
-      );
-    }
+    final myLang = languageFor(s.lang);
+    final myMissing = !s.hasPack(s.lang, PackKind.stt) || !s.hasPack(s.lang, PackKind.tts);
+    final myBusy = s.downloads.keys.any((k) => k.startsWith('${s.lang}-'));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Model packs')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: s.loading != null ? null : () => _import(ref),
-        icon: const Icon(Icons.file_open),
-        label: const Text('Import .itpack'),
+      appBar: AppBar(
+        title: const Text('Model packs'),
+        actions: [
+          IconButton(
+            tooltip: 'Import a .itpack file',
+            onPressed: s.loading != null ? null : () => _import(ref),
+            icon: const Icon(Icons.file_open_outlined),
+          ),
+        ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
-          if (s.loading != null) ...[LinearProgressIndicator(), const SizedBox(height: 8), Text(s.loading!), const SizedBox(height: 16)],
-          const Text(
-            'Packs are copied to the phone once (from a laptop, SD card, or another phone) and then work fully offline. '
-            'STT packs are about 130 MB each, voice packs 30 to 80 MB. Install only the languages you need.',
-          ),
-          const SizedBox(height: 16),
+          if (s.loading != null) ...[const LinearProgressIndicator(), const SizedBox(height: 8), Text(s.loading!), const SizedBox(height: 16)],
+          if (myMissing)
+            Card(
+              color: Theme.of(context).colorScheme.primaryContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Set up ${myLang.english}', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 4),
+                  const Text('Downloads speech recognition (~190 MB) and a voice (~110 MB). '
+                      'Needs internet once; after that everything works offline.'),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: myBusy ? null : c.downloadMissingForMyLanguage,
+                    icon: myBusy
+                        ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.download),
+                    label: Text(myBusy ? 'Downloading...' : 'Download ${myLang.english}'),
+                  ),
+                ]),
+              ),
+            ),
+          const SizedBox(height: 8),
+          const Text('Tap a download icon to fetch a pack. Long-press an installed pack to remove it.'),
+          const SizedBox(height: 12),
           Card(
             child: Column(children: [
               const ListTile(
                 dense: true,
                 title: Text('Language'),
-                trailing: SizedBox(width: 120, child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [Text('STT'), Text('Voice')])),
+                trailing: SizedBox(width: 128, child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [Text('STT'), Text('Voice')])),
               ),
               const Divider(height: 1),
               for (final l in languages)
@@ -63,23 +77,12 @@ class ModelsScreen extends ConsumerWidget {
                   selected: l.code == s.lang,
                   title: Text('${l.native} · ${l.english}'),
                   trailing: SizedBox(
-                    width: 120,
-                    child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [cell(l.code, PackKind.stt), cell(l.code, PackKind.tts)]),
+                    width: 128,
+                    child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+                      _PackCell(lang: l.code, kind: PackKind.stt, sizeLabel: _size),
+                      _PackCell(lang: l.code, kind: PackKind.tts, sizeLabel: _size),
+                    ]),
                   ),
-                  onLongPress: () async {
-                    final ok = await showDialog<bool>(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: Text('Remove ${l.english} STT pack?'),
-                        content: const Text('Voice packs shared by several languages are kept.'),
-                        actions: [
-                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Remove')),
-                        ],
-                      ),
-                    );
-                    if (ok == true) await c.deletePack(l.code, PackKind.stt);
-                  },
                 ),
             ]),
           ),
@@ -90,6 +93,70 @@ class ModelsScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// One STT or voice cell: installed tick, download button, or live progress with cancel.
+class _PackCell extends ConsumerWidget {
+  const _PackCell({required this.lang, required this.kind, required this.sizeLabel});
+  final String lang;
+  final PackKind kind;
+  final String Function(int) sizeLabel;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(appProvider);
+    final c = ref.read(appProvider.notifier);
+    final key = '$lang-${kind.name}';
+    final progress = s.downloads[key];
+    final pack = s.packs.where((p) => p.lang == lang && p.kind == kind).firstOrNull;
+    final what = kind == PackKind.stt ? 'speech recognition' : 'voice';
+
+    if (progress != null) {
+      return Tooltip(
+        message: 'Downloading ${(progress * 100).toStringAsFixed(0)}%, tap to cancel',
+        child: InkResponse(
+          onTap: () => c.cancelDownload(lang, kind),
+          radius: 24,
+          child: SizedBox.square(
+            dimension: 40,
+            child: Stack(alignment: Alignment.center, children: [
+              CircularProgressIndicator(value: progress <= 0 ? null : progress, strokeWidth: 3),
+              Text((progress * 100).toStringAsFixed(0), style: const TextStyle(fontSize: 11)),
+            ]),
+          ),
+        ),
+      );
+    }
+
+    if (pack != null) {
+      return Tooltip(
+        message: '${pack.engine} · ${sizeLabel(pack.sizeBytes)} · v${pack.version}',
+        child: InkResponse(
+          radius: 24,
+          onLongPress: () async {
+            final ok = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: Text('Remove ${languageFor(lang).english} $what?'),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                  FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Remove')),
+                ],
+              ),
+            );
+            if (ok == true) await c.deletePack(lang, kind);
+          },
+          child: const SizedBox.square(dimension: 40, child: Icon(Icons.check_circle, color: Colors.green)),
+        ),
+      );
+    }
+
+    return IconButton(
+      tooltip: 'Download ${languageFor(lang).english} $what',
+      onPressed: () => c.downloadPack(lang, kind),
+      icon: const Icon(Icons.download_for_offline_outlined),
     );
   }
 }

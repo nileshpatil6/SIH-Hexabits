@@ -262,7 +262,7 @@ class _EmptyFeed extends StatelessWidget {
           ),
           if (missing) ...[
             const SizedBox(height: 12),
-            FilledButton.tonal(onPressed: () => context.push('/models'), child: const Text('Install model packs')),
+            FilledButton.tonal(onPressed: () => context.push('/models'), child: const Text('Download speech models')),
           ],
         ]),
       ),

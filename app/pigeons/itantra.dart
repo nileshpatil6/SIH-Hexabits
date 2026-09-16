@@ -189,6 +189,11 @@ abstract class ModelApi {
   @async
   ModelPackInfo importPack(String uriOrPath);
   void deletePack(String lang, PackKind kind);
+  /// Download `<lang>-<kind>.itpack` from the published packs and install it.
+  /// Progress arrives via EventsApi.onPackProgress(lang, kind, 0..1).
+  @async
+  ModelPackInfo downloadPack(String lang, PackKind kind);
+  void cancelDownload(String lang, PackKind kind);
   /// Directory where packs live, for the file picker hint.
   String packsDir();
 }

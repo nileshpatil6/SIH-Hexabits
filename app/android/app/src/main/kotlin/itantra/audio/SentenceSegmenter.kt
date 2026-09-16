@@ -1,6 +1,6 @@
 package itantra.audio
 
-import android.content.res.AssetManager
+import java.io.File
 import com.k2fsa.sherpa.onnx.SileroVadModelConfig
 import com.k2fsa.sherpa.onnx.Vad
 import com.k2fsa.sherpa.onnx.VadModelConfig
@@ -11,18 +11,23 @@ import com.k2fsa.sherpa.onnx.VadModelConfig
  * a monologue so the receiver starts hearing it early.
  */
 class SentenceSegmenter(
-    assetManager: AssetManager,
+    modelPath: String,
     private val onUtterance: (FloatArray) -> Unit,
     trailingSilenceSec: Float = 0.45f,
     minSpeechSec: Float = 0.3f,
     maxSpeechSec: Float = 12f,
     private val sampleRate: Int = 16000,
 ) {
+    init {
+        // sherpa-onnx aborts the whole process on a missing model file, so check first.
+        require(File(modelPath).isFile) { "VAD model missing at $modelPath" }
+    }
+
     private val vad = Vad(
-        assetManager,
+        null,
         VadModelConfig(
             sileroVadModelConfig = SileroVadModelConfig(
-                model = "models/silero_vad.onnx",
+                model = modelPath,
                 threshold = 0.5f,
                 minSilenceDuration = trailingSilenceSec,
                 minSpeechDuration = minSpeechSec,

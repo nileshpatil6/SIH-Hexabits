@@ -187,6 +187,8 @@ cd app/android && ./gradlew :app:testDebugUnitTest        # 10 Kotlin tests pass
 
 **If you edit `pigeons/itantra.dart`:** run `dart run pigeon --input pigeons/itantra.dart` from `app/`. It regenerates both `lib/core/bridge/itantra_api.g.dart` and `android/app/src/main/kotlin/itantra/bridge/ItantraApi.g.kt`.
 
+**Windows gotcha 2:** if `flutter build apk` fails but you have VS Code open with the Java extension, build with `cd app/android && ./gradlew :app:assembleDebug` instead; the APK lands in the same place.
+
 **Windows gotcha:** if the build fails with "Timeout waiting to lock build logic queue", old Gradle daemons are holding a lock. Run `cd app/android && ./gradlew --stop`, kill leftover `java.exe` processes, delete `app/android/.gradle`, and rebuild.
 
 ---
@@ -209,7 +211,7 @@ adb push hi-stt.itpack /sdcard/Download/
 adb push hi-tts.itpack /sdcard/Download/
 ```
 
-In the app: Settings > Model packs > Import .itpack, pick each file.
+In the app: Settings > Model packs. Tap the download icon next to a language (or "Download <language>" for your own language); packs download straight from the Hugging Face dataset with progress and cancel. Importing a local `.itpack` file is still available from the file icon in the top bar.
 
 **Rebuilding packs yourself (Colab, no GPU needed)**
 1. Zip the `tools/` folder as `tools.zip` with forward-slash paths. Windows PowerShell 5 `Compress-Archive` writes backslashes that break on Linux, so use Python `zipfile`.
@@ -265,13 +267,14 @@ RTF 0.10 means a 4 s sentence decodes in 0.4 s. Most of the "errors" are punctua
 
 ## 8. What is NOT verified yet
 
-- **The app has never run on a real phone.** None of this has been tried on hardware:
-  - pack import on device, STT/TTS load time and RAM on a 3 GB phone
+- **Verified on a real phone (OnePlus CPH2717, Android 16):** app installs and runs, Hindi STT loads in 644 ms and TTS in 654 ms, holding the mic transcribes Hindi speech ("हलो हलो" decoded in 236 ms). An earlier crash on mic press (VAD model path) is fixed.
+- **Still not tried on hardware:**
+  - in-app pack download (added, not yet exercised on the phone), RAM on a 3 GB phone
   - BLE mesh between two or three phones, relays and hop counts
   - Wi-Fi Direct group formation
   - alerts over Do Not Disturb and on the lock screen
   - foreground service surviving in the background, battery drain
-- The last on-device attempt (OnePlus CPH2717, Android 16, 8 GB RAM) stopped at the build step because of the Gradle lock issue in section 5. The phone was detected by `adb` fine.
+- Mesh was not tested yet because Bluetooth, Wi-Fi and Location were switched off on the test phone.
 - `tools/tts/export_rasa13.py` has never been run. Access to the gated rasa13 repo works (terms accepted on account `Mr66`), but the ONNX wrapper is a best guess at sherpa's VITS input contract.
 - `tools/stt/export_indicconformer.py` (NeMo route) has never been run. It is only needed to re-export from `.nemo`.
 

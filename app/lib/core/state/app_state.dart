@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -63,6 +64,7 @@ class AppState {
     this.ttsReady = false,
     this.loading,
     this.lastError,
+    this.downloads = const {},
   });
 
   final bool onboarded;
@@ -82,6 +84,9 @@ class AppState {
   final bool ttsReady;
   final String? loading;
   final String? lastError;
+
+  /// In-flight pack downloads, key `lang-kind` (e.g. `hi-stt`) -> progress 0..1.
+  final Map<String, double> downloads;
 
   bool hasPack(String lang, PackKind kind) =>
       packs.any((p) => p.lang == lang && p.kind == kind && p.installed);
@@ -104,6 +109,7 @@ class AppState {
     bool? ttsReady,
     Object? loading = _sentinel,
     Object? lastError = _sentinel,
+    Map<String, double>? downloads,
   }) {
     return AppState(
       onboarded: onboarded ?? this.onboarded,
@@ -123,6 +129,7 @@ class AppState {
       ttsReady: ttsReady ?? this.ttsReady,
       loading: identical(loading, _sentinel) ? this.loading : loading as String?,
       lastError: identical(lastError, _sentinel) ? this.lastError : lastError as String?,
+      downloads: downloads ?? this.downloads,
     );
   }
 }
@@ -280,6 +287,37 @@ class AppController extends StateNotifier<AppState> {
     }
   }
 
+  Future<void> downloadPack(String lang, PackKind kind) async {
+    final key = '$lang-${kind.name}';
+    if (state.downloads.containsKey(key)) return;
+    state = state.copyWith(downloads: {...state.downloads, key: 0});
+    try {
+      await _models.downloadPack(lang, kind);
+      await refreshPacks();
+      if (lang == state.lang) await prepareEngines();
+    } catch (e) {
+      if (!'$e'.contains('cancel')) _error('download', 'Could not download $key: ${_short(e)}');
+    } finally {
+      state = state.copyWith(downloads: Map.of(state.downloads)..remove(key));
+    }
+  }
+
+  /// Downloads whatever the current language is missing (STT and voice).
+  Future<void> downloadMissingForMyLanguage() async {
+    final lang = state.lang;
+    await Future.wait([
+      if (!state.hasPack(lang, PackKind.stt)) downloadPack(lang, PackKind.stt),
+      if (!state.hasPack(lang, PackKind.tts)) downloadPack(lang, PackKind.tts),
+    ]);
+  }
+
+  Future<void> cancelDownload(String lang, PackKind kind) => _models.cancelDownload(lang, kind);
+
+  String _short(Object e) {
+    final s = e is PlatformException ? (e.message ?? e.code) : '$e';
+    return s.length > 160 ? '${s.substring(0, 160)}...' : s;
+  }
+
   Future<void> deletePack(String lang, PackKind kind) async {
     await _models.deletePack(lang, kind);
     await refreshPacks();
@@ -342,7 +380,12 @@ class AppController extends StateNotifier<AppState> {
   void nativeError(String code, String message) => _error(code, message);
 
   void onPackProgress(String lang, PackKind kind, double progress) {
-    state = state.copyWith(loading: 'Importing pack ${(progress * 100).toStringAsFixed(0)}%');
+    final key = '$lang-${kind.name}';
+    if (lang.isNotEmpty && state.downloads.containsKey(key)) {
+      state = state.copyWith(downloads: {...state.downloads, key: progress});
+    } else {
+      state = state.copyWith(loading: 'Importing pack ${(progress * 100).toStringAsFixed(0)}%');
+    }
   }
 }
 

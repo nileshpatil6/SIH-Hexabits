@@ -47,6 +47,7 @@ class TtsEngine(private val packs: ModelPackManager, private val maxResident: In
         }
         val model = m.file("model")?.absolutePath ?: error("pack ${m.name} has no model")
         val tokens = m.file("tokens")?.absolutePath ?: error("pack ${m.name} has no tokens")
+            require(java.io.File(model).isFile && java.io.File(tokens).isFile) { "pack ${m.name} is incomplete, re-download it" }
         val cfg = OfflineTtsConfig(
             model = OfflineTtsModelConfig(
                 vits = OfflineTtsVitsModelConfig(

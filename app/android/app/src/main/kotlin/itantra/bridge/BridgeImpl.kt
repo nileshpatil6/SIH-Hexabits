@@ -137,5 +137,26 @@ class ModelApiImpl(private val core: ItantraCore, private val events: EventsApi)
     }
 
     override fun deletePack(lang: String, kind: PackKind) = core.packs.delete(lang, kind.toCore())
+
+    private val downloads = Executors.newFixedThreadPool(2)
+    private val cancelled = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
+    override fun downloadPack(lang: String, kind: PackKind, callback: (Result<ModelPackInfo>) -> Unit) {
+        val key = "$lang-${kind.name}"
+        cancelled.remove(key)
+        downloads.execute {
+            val r = runCatching {
+                var last = -1
+                val m = core.packs.download(lang, kind.toCore(), { p ->
+                    val pct = (p * 100).toInt()
+                    if (pct != last) { last = pct; main.post { events.onPackProgress(lang, kind, p) {} } }
+                }, { key in cancelled })
+                ModelPackInfo(m.langs.joinToString(","), m.kind.toBridge(), m.engine, true, m.sizeBytes(), m.version, m.dir.absolutePath)
+            }
+            main.post { callback(r) }
+        }
+    }
+
+    override fun cancelDownload(lang: String, kind: PackKind) { cancelled.add("$lang-${kind.name}") }
     override fun packsDir(): String = core.packs.root.absolutePath
 }

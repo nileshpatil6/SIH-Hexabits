@@ -998,6 +998,57 @@ class ModelApi {
     }
   }
 
+  /// Download `<lang>-<kind>.itpack` from the published packs and install it.
+  /// Progress arrives via EventsApi.onPackProgress(lang, kind, 0..1).
+  Future<ModelPackInfo> downloadPack(String lang, PackKind kind) async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.itantra.ModelApi.downloadPack$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_channel.send(<Object?>[lang, kind]) as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else if (pigeonVar_replyList[0] == null) {
+      throw PlatformException(
+        code: 'null-error',
+        message: 'Host platform returned null value for non-null return value.',
+      );
+    } else {
+      return (pigeonVar_replyList[0] as ModelPackInfo?)!;
+    }
+  }
+
+  Future<void> cancelDownload(String lang, PackKind kind) async {
+    final String pigeonVar_channelName = 'dev.flutter.pigeon.itantra.ModelApi.cancelDownload$pigeonVar_messageChannelSuffix';
+    final BasicMessageChannel<Object?> pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final List<Object?>? pigeonVar_replyList =
+        await pigeonVar_channel.send(<Object?>[lang, kind]) as List<Object?>?;
+    if (pigeonVar_replyList == null) {
+      throw _createConnectionError(pigeonVar_channelName);
+    } else if (pigeonVar_replyList.length > 1) {
+      throw PlatformException(
+        code: pigeonVar_replyList[0]! as String,
+        message: pigeonVar_replyList[1] as String?,
+        details: pigeonVar_replyList[2],
+      );
+    } else {
+      return;
+    }
+  }
+
   /// Directory where packs live, for the file picker hint.
   Future<String> packsDir() async {
     final String pigeonVar_channelName = 'dev.flutter.pigeon.itantra.ModelApi.packsDir$pigeonVar_messageChannelSuffix';

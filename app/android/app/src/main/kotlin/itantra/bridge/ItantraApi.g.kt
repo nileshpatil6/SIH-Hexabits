@@ -793,6 +793,12 @@ interface ModelApi {
   /** Import a `.itpack` zip from a content:// or file path. Returns the manifest. */
   fun importPack(uriOrPath: String, callback: (Result<ModelPackInfo>) -> Unit)
   fun deletePack(lang: String, kind: PackKind)
+  /**
+   * Download `<lang>-<kind>.itpack` from the published packs and install it.
+   * Progress arrives via EventsApi.onPackProgress(lang, kind, 0..1).
+   */
+  fun downloadPack(lang: String, kind: PackKind, callback: (Result<ModelPackInfo>) -> Unit)
+  fun cancelDownload(lang: String, kind: PackKind)
   /** Directory where packs live, for the file picker hint. */
   fun packsDir(): String
 
@@ -849,6 +855,46 @@ interface ModelApi {
             val kindArg = args[1] as PackKind
             val wrapped: List<Any?> = try {
               api.deletePack(langArg, kindArg)
+              listOf(null)
+            } catch (exception: Throwable) {
+              wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.itantra.ModelApi.downloadPack$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val langArg = args[0] as String
+            val kindArg = args[1] as PackKind
+            api.downloadPack(langArg, kindArg) { result: Result<ModelPackInfo> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(wrapError(error))
+              } else {
+                val data = result.getOrNull()
+                reply.reply(wrapResult(data))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.itantra.ModelApi.cancelDownload$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val langArg = args[0] as String
+            val kindArg = args[1] as PackKind
+            val wrapped: List<Any?> = try {
+              api.cancelDownload(langArg, kindArg)
               listOf(null)
             } catch (exception: Throwable) {
               wrapError(exception)
