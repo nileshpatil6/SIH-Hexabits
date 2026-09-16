@@ -1,5 +1,7 @@
 ﻿# iTantra
 
+Full project handoff (status, bugs, what is left): see [HANDOFF.md](HANDOFF.md).
+
 SIH 26173: Indian Multilingual TTS & STT Aided Neural Transceiver Radio Access for low bitrate links.
 
 An Android walkie-talkie that works with no internet and no cellular network. Speech is recognised on the phone, sent as a few hundred bytes of text over Bluetooth LE mesh or Wi-Fi Direct, and spoken aloud on the receiving phone.
@@ -29,8 +31,8 @@ There is no server.
 
 | Role | Model | License |
 |---|---|---|
-| STT (9 Indic) | AI4Bharat IndicConformer per-language large, CTC head, int8 (~130 MB each) | MIT |
-| STT (English) | NVIDIA stt_en_conformer_ctc_small | CC-BY-4.0 |
+| STT (9 Indic) | AI4Bharat IndicConformer per-language, CTC head, int8 (~190 MB each) | MIT |
+| STT (English) | NVIDIA fast-conformer CTC (sherpa export, ~167 MB) | CC-BY-4.0 |
 | TTS (all 10) | Meta MMS-TTS VITS, sherpa export (~108 MB each) | CC-BY-NC-4.0 |
 | TTS (planned) | AI4Bharat vits_rasa_13 for bn mr ta te kn ml, see tools/tts/export_rasa13.py | CC-BY-4.0 |
 | VAD | Silero VAD (bundled) | MIT |
@@ -47,7 +49,7 @@ There is no server.
 
 ## Building model packs
 
-See `tools/`. Typical flow for Hindi (Linux or Colab for the NeMo step):
+See `tools/` and `HANDOFF.md`. Typical flow for Hindi (Linux or Colab for the MMS export):
 
 ```
 pip install -r tools/requirements.txt
