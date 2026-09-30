@@ -11,3 +11,8 @@ tools/work/
 __pycache__/
 .DS_Store
 app/android/build/
+ppt_work/node_modules/
+ppt_work/render/
+ppt_work/tpl_png/
+ppt_work/package*.json
+ppt_work/img/preview.jpg
